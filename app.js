@@ -1,75 +1,47 @@
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
-const captureBtn = document.getElementById("capture");
-
-let stream = null;
+const button = document.getElementById("capture");
 
 async function startCamera() {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" }
-      },
-      audio: false
-    });
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" },
+    audio: false
+  });
 
-    video.srcObject = stream;
-    video.setAttribute("playsinline", true);
-    await video.play();
+  video.srcObject = stream;
 
-    const track = stream.getVideoTracks()[0];
-    const caps = track.getCapabilities?.();
-
-    // Autofocus continuo SOLO si está soportado
-    if (caps && caps.focusMode && caps.focusMode.includes("continuous")) {
-      await track.applyConstraints({
-        advanced: [{ focusMode: "continuous" }]
-      });
-    }
-
-  } catch (err) {
-    alert("Error accediendo a la cámara: " + err.message);
-  }
+  // fuerza render
+  video.onloadedmetadata = () => {
+    video.play();
+  };
 }
 
-captureBtn.addEventListener("click", () => {
-  if (!video.videoWidth || !video.videoHeight) {
-    alert("La cámara aún no está lista");
+button.onclick = () => {
+  if (video.videoWidth === 0) {
+    alert("La cámara no está activa");
     return;
   }
 
-  const width = video.videoWidth;
-  const height = video.videoHeight;
-
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
 
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0, width, height);
+  ctx.drawImage(video, 0, 0);
 
-  // Marca de agua
-  const now = new Date();
-  const timestamp = now.toLocaleString("es-AR");
-
+  const now = new Date().toLocaleString("es-AR");
   ctx.font = "32px sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.strokeStyle = "rgba(0,0,0,0.6)";
+  ctx.fillStyle = "white";
+  ctx.strokeStyle = "black";
   ctx.lineWidth = 3;
-
-  const padding = 24;
-  ctx.strokeText(timestamp, padding, height - padding);
-  ctx.fillText(timestamp, padding, height - padding);
+  ctx.strokeText(now, 20, canvas.height - 20);
+  ctx.fillText(now, 20, canvas.height - 20);
 
   canvas.toBlob(blob => {
-    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = `foto_${Date.now()}.jpg`;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   }, "image/jpeg", 0.95);
-});
+};
 
 startCamera();
