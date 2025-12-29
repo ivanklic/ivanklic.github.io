@@ -8,37 +8,36 @@ async function startCamera() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        facingMode: { exact: "environment" }
+        facingMode: { ideal: "environment" }
       },
       audio: false
     });
 
     video.srcObject = stream;
+    video.setAttribute("playsinline", true);
     await video.play();
 
     const track = stream.getVideoTracks()[0];
-    const caps = track.getCapabilities();
+    const caps = track.getCapabilities?.();
 
-    // Autofocus continuo (si el hardware lo permite)
-    if (caps.focusMode) {
+    // Autofocus continuo SOLO si está soportado
+    if (caps && caps.focusMode && caps.focusMode.includes("continuous")) {
       await track.applyConstraints({
         advanced: [{ focusMode: "continuous" }]
       });
     }
 
-    // Zoom neutro (evita ultrawide sin romper autofocus)
-    if (caps.zoom) {
-      await track.applyConstraints({
-        advanced: [{ zoom: 1 }]
-      });
-    }
-
   } catch (err) {
-    alert("No se pudo acceder a la cámara: " + err.message);
+    alert("Error accediendo a la cámara: " + err.message);
   }
 }
 
 captureBtn.addEventListener("click", () => {
+  if (!video.videoWidth || !video.videoHeight) {
+    alert("La cámara aún no está lista");
+    return;
+  }
+
   const width = video.videoWidth;
   const height = video.videoHeight;
 
@@ -46,8 +45,6 @@ captureBtn.addEventListener("click", () => {
   canvas.height = height;
 
   const ctx = canvas.getContext("2d");
-
-  // Dibuja el frame actual respetando orientación
   ctx.drawImage(video, 0, 0, width, height);
 
   // Marca de agua
@@ -55,27 +52,24 @@ captureBtn.addEventListener("click", () => {
   const timestamp = now.toLocaleString("es-AR");
 
   ctx.font = "32px sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.strokeStyle = "rgba(0,0,0,0.6)";
   ctx.lineWidth = 3;
 
-  const padding = 20;
-  const textX = padding;
-  const textY = height - padding;
+  const padding = 24;
+  ctx.strokeText(timestamp, padding, height - padding);
+  ctx.fillText(timestamp, padding, height - padding);
 
-  ctx.strokeText(timestamp, textX, textY);
-  ctx.fillText(timestamp, textX, textY);
-
-  // Exporta imagen
   canvas.toBlob(blob => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `foto_${Date.now()}.jpg`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, "image/jpeg", 0.95);
 });
 
-// Inicializa
 startCamera();
